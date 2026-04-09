@@ -25,7 +25,7 @@ brew install tmux fzf git gh neovim
 ## Installation
 
 ```bash
-git clone <repo-url> ~/worktree-sessions
+git clone https://github.com/michael-duren/worktree-sessions.git ~/worktree-sessions
 cd ~/worktree-sessions
 ./install.sh
 ```
@@ -109,16 +109,16 @@ Running `wts` with no arguments opens the interactive worktree picker
 
 ### Commands
 
-| Command | Description |
-|---|---|
-| `wts` | Interactive fzf picker, opens a 3-pane session in the selected worktree |
-| `wts open <name>` | Open a session directly by worktree directory name |
-| `wts list` | Show all worktrees with branch name and session status |
-| `wts review <pr#>` | Fetch a PR, create a worktree for it, open a review session |
-| `wts close [name]` | Interactive picker to kill a session (or pass the name directly) |
-| `wts close --all` | Kill all active worktree sessions |
-| `wts config` | Print current configuration values |
-| `wts help [command]` | Show help (optionally for a specific command) |
+| Command              | Description                                                             |
+| -------------------- | ----------------------------------------------------------------------- |
+| `wts`                | Interactive fzf picker, opens a 3-pane session in the selected worktree |
+| `wts open <name>`    | Open a session directly by worktree directory name                      |
+| `wts list`           | Show all worktrees with branch name and session status                  |
+| `wts review <pr#>`   | Fetch a PR, create a worktree for it, open a review session             |
+| `wts close [name]`   | Interactive picker to kill a session (or pass the name directly)        |
+| `wts close --all`    | Kill all active worktree sessions                                       |
+| `wts config`         | Print current configuration values                                      |
+| `wts help [command]` | Show help (optionally for a specific command)                           |
 
 ### Examples
 
