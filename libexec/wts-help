@@ -26,10 +26,9 @@ Open a tmux session for a git worktree.
 If no worktree name is given, an interactive fzf picker is displayed.
 If a session already exists, switches to it instead of creating a new one.
 
-Each session opens with three configurable panes:
-  Pane 1: gh dash    (GitHub dashboard)
-  Pane 2: nvim       (editor)
-  Pane 3: opencode   (AI assistant)
+Each session opens with two configurable panes:
+  Pane 1: nvim       (editor)
+  Pane 2: opencode   (AI assistant)
 
 Configure pane commands in ~/.config/wts/config
 
@@ -62,7 +61,8 @@ This command:
   4. Opens a session with the review editor
 
 The review editor can be configured via WTS_PR_REVIEW_CMD in
-~/.config/wts/config (default: nvim +Octo)
+~/.config/wts/config (default: nvim). Use :Octo pr <number> in
+neovim to start the review.
 
 Examples:
   wts review 123    # review PR #123
@@ -117,7 +117,7 @@ cat << EOF
 ${WTS_BOLD}wts${WTS_RESET} - Worktree Sessions
 
 Manage tmux sessions for git worktrees. Each worktree gets its own
-tmux session with configurable panes (gh dash, neovim, opencode).
+tmux session with configurable panes (neovim, opencode).
 
 ${WTS_BOLD}Usage:${WTS_RESET}
   wts [command] [options]

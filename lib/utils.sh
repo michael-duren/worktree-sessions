@@ -179,37 +179,25 @@ wts_create_session() {
   # Read pane commands from config
   local pane1_cmd="${WTS_PANE1_CMD:-$WTS_DEFAULT_PANE1_CMD}"
   local pane2_cmd="${WTS_PANE2_CMD:-$WTS_DEFAULT_PANE2_CMD}"
-  local pane3_cmd="${WTS_PANE3_CMD:-$WTS_DEFAULT_PANE3_CMD}"
 
   # Read layout from config
   local layout="${WTS_LAYOUT:-$WTS_DEFAULT_LAYOUT}"
 
-  # Create session with first pane (gh dash)
+  # Create session with first pane
   tmux new-session -d -s "$session_name" -c "$worktree_path" -x "$(tput cols)" -y "$(tput lines)"
 
   case "$layout" in
-    three-columns)
-      # Layout: [gh dash | neovim | opencode]
-      # Split horizontally to create pane 2
+    two-columns)
+      # Layout: [nvim | opencode]
       tmux split-window -h -t "$session_name" -c "$worktree_path"
-      # Split pane 2 horizontally to create pane 3
-      tmux split-window -h -t "$session_name" -c "$worktree_path"
-      # Even out the columns
       tmux select-layout -t "$session_name" even-horizontal
       ;;
     main-vertical)
-      # Layout: [neovim (big) | gh dash / opencode (stacked)]
+      # Layout: [nvim (65%) | opencode (35%)]
       tmux split-window -h -t "$session_name" -c "$worktree_path" -p 35
-      tmux split-window -v -t "$session_name:1.2" -c "$worktree_path"
-      ;;
-    main-horizontal)
-      # Layout: [neovim (top, big) / gh dash | opencode (bottom)]
-      tmux split-window -v -t "$session_name" -c "$worktree_path" -p 35
-      tmux split-window -h -t "$session_name:1.2" -c "$worktree_path"
       ;;
     *)
-      # Default: three columns
-      tmux split-window -h -t "$session_name" -c "$worktree_path"
+      # Default: two equal columns
       tmux split-window -h -t "$session_name" -c "$worktree_path"
       tmux select-layout -t "$session_name" even-horizontal
       ;;
@@ -218,10 +206,9 @@ wts_create_session() {
   # Send commands to each pane
   tmux send-keys -t "$session_name:1.1" "$pane1_cmd" C-m
   tmux send-keys -t "$session_name:1.2" "$pane2_cmd" C-m
-  tmux send-keys -t "$session_name:1.3" "$pane3_cmd" C-m
 
-  # Focus the editor pane (pane 2 = neovim by default)
-  tmux select-pane -t "$session_name:1.2"
+  # Focus pane 1 (editor by default)
+  tmux select-pane -t "$session_name:1.1"
 
   wts_debug "Session '$session_name' created with layout '$layout'"
 }

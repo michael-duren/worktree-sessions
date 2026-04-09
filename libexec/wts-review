@@ -142,8 +142,8 @@ if wts_session_exists "$session_name"; then
 else
   wts_info "Opening review session: ${WTS_BOLD}$session_name${WTS_RESET}"
 
-  # Override pane2 with the review command
-  local_pane2="${WTS_PR_REVIEW_CMD:-nvim +Octo}"
-  WTS_PANE2_CMD="$local_pane2" wts_create_session "$worktree_path" "$session_name"
+  # Override pane1 with the review command
+  local_pane1="${WTS_PR_REVIEW_CMD:-nvim}"
+  WTS_PANE1_CMD="$local_pane1" wts_create_session "$worktree_path" "$session_name"
   wts_attach_session "$session_name"
 fi

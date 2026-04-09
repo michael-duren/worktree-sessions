@@ -13,10 +13,10 @@ tmux session with configurable panes for your development workflow.
 
 **Optional (used by default pane commands):**
 
-- [gh](https://cli.github.com/) - GitHub CLI, used for `gh dash` and `wts review`
-- [neovim](https://neovim.io/) - editor (pane 2 default)
-- [opencode](https://opencode.ai/) - AI assistant (pane 3 default)
-- [Octo.nvim](https://github.com/pwntester/octo.nvim) - neovim plugin for PR review
+- [gh](https://cli.github.com/) - GitHub CLI, required for `wts review`
+- [neovim](https://neovim.io/) - editor (pane 1 default)
+- [opencode](https://opencode.ai/) - AI assistant (pane 2 default)
+- [Octo.nvim](https://github.com/pwntester/octo.nvim) - neovim plugin for PR review (`:Octo pr <number>`)
 
 ```bash
 brew install tmux fzf git gh neovim
@@ -111,7 +111,7 @@ Running `wts` with no arguments opens the interactive worktree picker
 
 | Command              | Description                                                             |
 | -------------------- | ----------------------------------------------------------------------- |
-| `wts`                | Interactive fzf picker, opens a 3-pane session in the selected worktree |
+| `wts`                | Interactive fzf picker, opens a 2-pane session in the selected worktree |
 | `wts open <name>`    | Open a session directly by worktree directory name                      |
 | `wts list`           | Show all worktrees with branch name and session status                  |
 | `wts review <pr#>`   | Fetch a PR, create a worktree for it, open a review session             |
@@ -153,52 +153,41 @@ Run `wts config` to see current values.
 ### Config options
 
 ```bash
-# Session name prefix (sessions are named <prefix>:<worktree>)
+# Session name prefix (sessions are named <prefix>/<worktree>)
 WTS_SESSION_PREFIX="wt"
 
 # Commands for each pane
-WTS_PANE1_CMD="gh dash"       # Pane 1: GitHub dashboard
-WTS_PANE2_CMD="nvim"          # Pane 2: Editor
-WTS_PANE3_CMD="opencode"      # Pane 3: AI assistant
+WTS_PANE1_CMD="nvim"          # Pane 1: Editor
+WTS_PANE2_CMD="opencode"      # Pane 2: AI assistant
 
-# Layout: three-columns | main-vertical | main-horizontal
-WTS_LAYOUT="three-columns"
+# Layout: two-columns | main-vertical
+WTS_LAYOUT="two-columns"
 
 # PR review settings
 WTS_PR_WORKTREE_PREFIX="pr-"  # Prefix for auto-created PR worktrees
-WTS_PR_REVIEW_CMD="nvim +Octo" # Editor command used in review sessions
+WTS_PR_REVIEW_CMD="nvim"      # Editor command used in review sessions
 ```
 
 ### Layouts
 
-**`three-columns`** (default) -- three equal-width columns:
+**`two-columns`** (default) -- two equal-width columns:
 
 ```
-┌──────────┬──────────┬──────────┐
-│ gh dash  │  nvim    │ opencode │
-│          │          │          │
-│          │          │          │
-└──────────┴──────────┴──────────┘
+┌──────────────┬──────────────┐
+│    nvim      │   opencode   │
+│              │              │
+│              │              │
+└──────────────┴──────────────┘
 ```
 
-**`main-vertical`** -- large editor left, stacked sidebar right:
+**`main-vertical`** -- large editor left, smaller sidebar right:
 
 ```
-┌─────────────────┬──────────┐
-│                 │ gh dash  │
-│     nvim        ├──────────┤
-│                 │ opencode │
-└─────────────────┴──────────┘
-```
-
-**`main-horizontal`** -- large editor top, split bar bottom:
-
-```
-┌────────────────────────────┐
-│           nvim             │
-├──────────────┬─────────────┤
-│   gh dash    │  opencode   │
-└──────────────┴─────────────┘
+┌───────────────────┬────────┐
+│                   │        │
+│      nvim         │opencode│
+│                   │        │
+└───────────────────┴────────┘
 ```
 
 ## tmux integration
