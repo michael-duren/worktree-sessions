@@ -157,10 +157,10 @@ wts_list_worktrees() {
 # ─────────────────────────────────────────────────────────────
 
 # Generate a tmux session name from a worktree name
-# Tmux doesn't allow dots or colons in session names
+# Tmux reserves '.' and ':' as delimiters -- avoid both
 wts_session_name() {
   local name="$1"
-  echo "${WTS_SESSION_PREFIX:-wt}:${name}" | tr '.' '_'
+  echo "${WTS_SESSION_PREFIX:-wt}/${name}" | tr '.:"' '_'
 }
 
 # Check if a tmux session exists
