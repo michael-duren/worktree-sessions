@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# wts-config - Show current configuration
+#
+# Usage: wts config
+#
+set -euo pipefail
+
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+wts_show_config

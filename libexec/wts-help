@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+#
+# wts-help - Display help for wts commands
+#
+# Usage: wts help [command]
+#
+set -euo pipefail
+
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+command="${1:-}"
+
+# ─────────────────────────────────────────────────────────────
+# Command-specific help
+# ─────────────────────────────────────────────────────────────
+
+if [ -n "$command" ]; then
+  case "$command" in
+    open)
+      cat << 'EOF'
+wts open [worktree-name]
+
+Open a tmux session for a git worktree.
+
+If no worktree name is given, an interactive fzf picker is displayed.
+If a session already exists, switches to it instead of creating a new one.
+
+Each session opens with three configurable panes:
+  Pane 1: gh dash    (GitHub dashboard)
+  Pane 2: nvim       (editor)
+  Pane 3: opencode   (AI assistant)
+
+Configure pane commands in ~/.config/wts/config
+
+Examples:
+  wts              # interactive picker (same as wts open)
+  wts open main    # open session in 'main' worktree
+  wts open feature # open session in 'feature' worktree
+EOF
+      ;;
+    list|ls)
+      cat << 'EOF'
+wts list
+
+List all worktrees and their tmux session status.
+
+Shows each worktree's name, branch, and whether a tmux session
+is currently active for it.
+EOF
+      ;;
+    review)
+      cat << 'EOF'
+wts review <pr-number>
+
+Checkout and review a GitHub pull request in a new worktree session.
+
+This command:
+  1. Fetches PR info from GitHub (requires gh CLI)
+  2. Creates a new worktree named pr-<number>
+  3. Checks out the PR branch
+  4. Opens a session with the review editor
+
+The review editor can be configured via WTS_PR_REVIEW_CMD in
+~/.config/wts/config (default: nvim +Octo)
+
+Examples:
+  wts review 123    # review PR #123
+  wts review 456    # review PR #456
+EOF
+      ;;
+    close)
+      cat << 'EOF'
+wts close [worktree-name]
+wts close --all
+
+Close/kill a worktree tmux session.
+
+If no name is given, an interactive picker of active sessions is shown.
+When closing a PR review worktree, you'll be asked if you want to
+remove the worktree directory as well.
+
+Options:
+  --all, -a    Close all active worktree sessions
+
+Examples:
+  wts close          # interactive picker
+  wts close main     # close 'main' session
+  wts close --all    # close all sessions
+EOF
+      ;;
+    config)
+      cat << 'EOF'
+wts config
+
+Display current configuration values.
+
+Configuration file: ~/.config/wts/config
+
+Edit this file to customize pane commands, layout, and other settings.
+EOF
+      ;;
+    *)
+      wts_error "Unknown command: $command"
+      echo ""
+      exec "$WTS_LIBEXEC/wts-help"
+      ;;
+  esac
+  exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────
+# General help
+# ─────────────────────────────────────────────────────────────
+
+cat << EOF
+${WTS_BOLD}wts${WTS_RESET} - Worktree Sessions
+
+Manage tmux sessions for git worktrees. Each worktree gets its own
+tmux session with configurable panes (gh dash, neovim, opencode).
+
+${WTS_BOLD}Usage:${WTS_RESET}
+  wts [command] [options]
+
+${WTS_BOLD}Commands:${WTS_RESET}
+  open [name]       Open a worktree session (default command)
+  list              List worktrees and session status
+  review <pr#>      Review a PR in a new worktree session
+  close [name]      Close a worktree session
+  config            Show current configuration
+  help [command]    Show help for a command
+
+${WTS_BOLD}Examples:${WTS_RESET}
+  wts               Interactive worktree picker
+  wts open main     Open session in 'main' worktree
+  wts list          Show all worktrees
+  wts review 123    Review PR #123
+  wts close --all   Close all sessions
+
+${WTS_BOLD}Configuration:${WTS_RESET}
+  ~/.config/wts/config
+
+  Customize pane commands, layout, session prefix, and more.
+  Run ${WTS_BOLD}wts config${WTS_RESET} to see current values.
+EOF

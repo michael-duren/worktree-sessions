@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+#
+# wts-close - Close/kill a worktree tmux session
+#
+# Usage: wts close [worktree-name]
+#        wts close --all
+#
+# If no name is given, presents a picker of active sessions.
+#
+set -euo pipefail
+
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+# ─────────────────────────────────────────────────────────────
+# Parse arguments
+# ─────────────────────────────────────────────────────────────
+
+kill_all=false
+target_name="${1:-}"
+
+if [ "$target_name" = "--all" ] || [ "$target_name" = "-a" ]; then
+  kill_all=true
+  target_name=""
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Find worktree root
+# ─────────────────────────────────────────────────────────────
+
+root="$(wts_find_worktree_root)" || {
+  wts_error "Could not find a worktree root directory."
+  exit 1
+}
+
+# ─────────────────────────────────────────────────────────────
+# Kill all sessions
+# ─────────────────────────────────────────────────────────────
+
+if [ "$kill_all" = true ]; then
+  killed=0
+  while IFS=$'\t' read -r path name branch status; do
+    if [ "$status" = "active" ]; then
+      session_name="$(wts_session_name "$name")"
+      wts_info "Killing session: $session_name"
+      tmux kill-session -t "=$session_name" 2>/dev/null || true
+      killed=$((killed + 1))
+    fi
+  done < <(wts_list_worktrees "$root")
+
+  if [ $killed -eq 0 ]; then
+    wts_info "No active sessions to close."
+  else
+    wts_success "Closed $killed session(s)."
+  fi
+  exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Collect active sessions
+# ─────────────────────────────────────────────────────────────
+
+active_names=()
+active_sessions=()
+
+while IFS=$'\t' read -r path name branch status; do
+  if [ "$status" = "active" ]; then
+    active_names+=("$name")
+    active_sessions+=("$(wts_session_name "$name")")
+  fi
+done < <(wts_list_worktrees "$root")
+
+if [ ${#active_names[@]} -eq 0 ]; then
+  wts_info "No active sessions to close."
+  exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Select session to close
+# ─────────────────────────────────────────────────────────────
+
+if [ -z "$target_name" ]; then
+  wts_check_deps
+
+  fzf_input=""
+  for name in "${active_names[@]}"; do
+    fzf_input+="$name"$'\n'
+  done
+
+  target_name="$(echo "$fzf_input" | fzf \
+    --reverse \
+    --header="Select session to close" \
+    --prompt="close> " \
+    --height=40% \
+    --border)" || exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Kill the session
+# ─────────────────────────────────────────────────────────────
+
+session_name="$(wts_session_name "$target_name")"
+
+if wts_session_exists "$session_name"; then
+  tmux kill-session -t "=$session_name"
+  wts_success "Closed session: $session_name"
+else
+  wts_error "No active session found for worktree: $target_name"
+  exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Optionally clean up PR worktrees
+# ─────────────────────────────────────────────────────────────
+
+pr_prefix="${WTS_PR_WORKTREE_PREFIX:-pr-}"
+if [[ "$target_name" == "${pr_prefix}"* ]]; then
+  echo ""
+  read -r -p "Remove PR worktree directory '$target_name'? [y/N] " response
+  if [[ "$response" =~ ^[Yy]$ ]]; then
+    worktree_path="${root}/${target_name}"
+
+    # Find a context dir for git operations
+    context_dir=""
+    for d in "$root"/*/; do
+      [ -d "$d" ] || continue
+      local_name="$(basename "$d")"
+      if [ "$local_name" != "$target_name" ] && { [ -f "${d}.git" ] || [ -d "${d}.git" ]; }; then
+        context_dir="$d"
+        break
+      fi
+    done
+
+    if [ -n "$context_dir" ]; then
+      git -C "$context_dir" worktree remove "$worktree_path" --force 2>/dev/null || {
+        wts_warn "Could not remove worktree via git, removing directory manually."
+        rm -rf "$worktree_path"
+      }
+      wts_success "Removed worktree: $target_name"
+    else
+      rm -rf "$worktree_path"
+      wts_success "Removed directory: $target_name"
+    fi
+  fi
+fi

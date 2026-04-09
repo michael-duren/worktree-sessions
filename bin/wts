@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# wts - Worktree Sessions
+# Manage tmux sessions for git worktrees
+#
+# Usage: wts [command] [options]
+#
+# Commands:
+#   open     Open a tmux session in a worktree (default)
+#   list     List worktrees and their session status
+#   review   Checkout and review a PR in a new session
+#   close    Close/kill a worktree session
+#   help     Show help
+#
+set -euo pipefail
+
+# Resolve the real location of this script (handles symlinks)
+WTS_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$WTS_SOURCE" ]; do
+  WTS_DIR="$(cd -P "$(dirname "$WTS_SOURCE")" && pwd)"
+  WTS_SOURCE="$(readlink "$WTS_SOURCE")"
+  [[ "$WTS_SOURCE" != /* ]] && WTS_SOURCE="$WTS_DIR/$WTS_SOURCE"
+done
+
+# Root of the wts installation
+export WTS_ROOT="$(cd -P "$(dirname "$WTS_SOURCE")/.." && pwd)"
+export WTS_LIBEXEC="$WTS_ROOT/libexec"
+export WTS_LIB="$WTS_ROOT/lib"
+
+# Source core libraries
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+# Load user configuration
+wts_load_config
+
+# ─────────────────────────────────────────────────────────────
+# Dispatch subcommand
+# ─────────────────────────────────────────────────────────────
+
+command="${1:-open}"
+shift 2>/dev/null || true
+
+# Look for the subcommand in libexec/
+command_path="$WTS_LIBEXEC/wts-${command}"
+
+if [ -x "$command_path" ]; then
+  exec "$command_path" "$@"
+else
+  wts_error "Unknown command: $command"
+  echo ""
+  exec "$WTS_LIBEXEC/wts-help"
+fi

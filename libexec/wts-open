@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+#
+# wts-open - Open a tmux session in a worktree
+#
+# Usage: wts open [worktree-name]
+#
+# If no worktree name is given, presents an interactive fzf picker.
+# If a session already exists for the worktree, switches to it.
+#
+set -euo pipefail
+
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+wts_check_deps
+
+# ─────────────────────────────────────────────────────────────
+# Find the worktree root
+# ─────────────────────────────────────────────────────────────
+
+root="$(wts_find_worktree_root)" || {
+  wts_error "Could not find a worktree root directory."
+  wts_error "Run this command from a directory containing git worktrees."
+  wts_error ""
+  wts_error "Expected structure:"
+  wts_error "  myproject/"
+  wts_error "    bare/      (bare git repo)"
+  wts_error "    main/      (worktree)"
+  wts_error "    feature-x/ (worktree)"
+  exit 1
+}
+
+wts_debug "Worktree root: $root"
+
+# ─────────────────────────────────────────────────────────────
+# Collect worktrees
+# ─────────────────────────────────────────────────────────────
+
+worktrees=()
+worktree_names=()
+worktree_branches=()
+worktree_statuses=()
+
+while IFS=$'\t' read -r path name branch status; do
+  worktrees+=("$path")
+  worktree_names+=("$name")
+  worktree_branches+=("$branch")
+  worktree_statuses+=("$status")
+done < <(wts_list_worktrees "$root")
+
+if [ ${#worktrees[@]} -eq 0 ]; then
+  wts_error "No worktrees found in $root"
+  exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Select worktree
+# ─────────────────────────────────────────────────────────────
+
+selected_name="${1:-}"
+
+if [ -z "$selected_name" ]; then
+  # Build fzf input with formatted display
+  fzf_input=""
+  for i in "${!worktree_names[@]}"; do
+    local_name="${worktree_names[$i]}"
+    local_branch="${worktree_branches[$i]}"
+    local_status="${worktree_statuses[$i]}"
+
+    if [ "$local_status" = "active" ]; then
+      status_icon="*"
+    else
+      status_icon=" "
+    fi
+
+    fzf_input+="$(printf '%s %s  (%s)  [%s]\n' "$status_icon" "$local_name" "$local_branch" "$local_status")"
+  done
+
+  # Run fzf picker
+  selected_line="$(echo "$fzf_input" | fzf \
+    --reverse \
+    --header="Select a worktree (* = active session)" \
+    --prompt="worktree> " \
+    --height=40% \
+    --border \
+    --ansi)" || exit 0
+
+  # Extract the worktree name (second field, after the status icon)
+  selected_name="$(echo "$selected_line" | awk '{print $2}')"
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Find the selected worktree
+# ─────────────────────────────────────────────────────────────
+
+selected_path=""
+for i in "${!worktree_names[@]}"; do
+  if [ "${worktree_names[$i]}" = "$selected_name" ]; then
+    selected_path="${worktrees[$i]}"
+    break
+  fi
+done
+
+if [ -z "$selected_path" ]; then
+  wts_error "Worktree not found: $selected_name"
+  exit 1
+fi
+
+# Remove trailing slash
+selected_path="${selected_path%/}"
+
+session_name="$(wts_session_name "$selected_name")"
+
+# ─────────────────────────────────────────────────────────────
+# Create or attach to session
+# ─────────────────────────────────────────────────────────────
+
+if wts_session_exists "$session_name"; then
+  wts_info "Switching to existing session: ${WTS_BOLD}$session_name${WTS_RESET}"
+  wts_attach_session "$session_name"
+else
+  wts_info "Creating session: ${WTS_BOLD}$session_name${WTS_RESET} in $selected_path"
+  wts_create_session "$selected_path" "$session_name"
+  wts_attach_session "$session_name"
+fi

@@ -1,0 +1,60 @@
+#compdef wts
+#
+# Zsh completion for wts
+#
+
+_wts() {
+  local -a commands
+  commands=(
+    'open:Open a worktree session (default)'
+    'list:List worktrees and session status'
+    'review:Review a PR in a new worktree session'
+    'close:Close a worktree session'
+    'config:Show current configuration'
+    'help:Show help for a command'
+  )
+
+  _arguments -C \
+    '1: :->command' \
+    '*:: :->args'
+
+  case "$state" in
+    command)
+      _describe -t commands 'wts command' commands
+      ;;
+    args)
+      case "$words[1]" in
+        open)
+          # Complete with worktree directory names
+          local -a worktrees
+          worktrees=()
+          for d in */; do
+            d="${d%/}"
+            if [ -f "${d}/.git" ] || [ -d "${d}/.git" ]; then
+              worktrees+=("$d")
+            fi
+          done
+          _describe -t worktrees 'worktree' worktrees
+          ;;
+        close)
+          local -a sessions
+          sessions=()
+          local line
+          while IFS= read -r line; do
+            sessions+=("${line#wt:}")
+          done < <(tmux list-sessions -F '#S' 2>/dev/null | grep '^wt:' || true)
+          _describe -t sessions 'active session' sessions
+          _arguments '--all[Close all sessions]'
+          ;;
+        review)
+          _message 'PR number'
+          ;;
+        help)
+          _describe -t commands 'wts command' commands
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_wts "$@"

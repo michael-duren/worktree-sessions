@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# wts-list - List worktrees and their session status
+#
+# Usage: wts list
+#
+set -euo pipefail
+
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+# ─────────────────────────────────────────────────────────────
+# Find the worktree root
+# ─────────────────────────────────────────────────────────────
+
+root="$(wts_find_worktree_root)" || {
+  wts_error "Could not find a worktree root directory."
+  exit 1
+}
+
+# ─────────────────────────────────────────────────────────────
+# Display worktrees
+# ─────────────────────────────────────────────────────────────
+
+echo ""
+echo "${WTS_BOLD}Worktrees in ${root}${WTS_RESET}"
+echo ""
+
+printf "  ${WTS_DIM}%-4s %-25s %-30s %s${WTS_RESET}\n" "" "NAME" "BRANCH" "SESSION"
+echo "  ${WTS_DIM}$(printf '%.0s─' {1..75})${WTS_RESET}"
+
+count=0
+active=0
+
+while IFS=$'\t' read -r path name branch status; do
+  count=$((count + 1))
+
+  if [ "$status" = "active" ]; then
+    active=$((active + 1))
+    status_display="${WTS_GREEN}active${WTS_RESET}"
+    indicator="${WTS_GREEN}*${WTS_RESET}"
+  else
+    status_display="${WTS_DIM}inactive${WTS_RESET}"
+    indicator=" "
+  fi
+
+  session_name="$(wts_session_name "$name")"
+  printf "  %s %-25s %-30s %s\n" "$indicator" "$name" "${WTS_CYAN}$branch${WTS_RESET}" "$status_display"
+done < <(wts_list_worktrees "$root")
+
+echo ""
+echo "  ${WTS_DIM}$count worktrees, $active active sessions${WTS_RESET}"
+echo ""

@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+#
+# wts-review - Checkout and review a PR in a new worktree session
+#
+# Usage: wts review <pr-number>
+#
+# Creates a new worktree for the PR, checks out the PR branch,
+# and opens a session with the review editor.
+#
+set -euo pipefail
+
+source "$WTS_LIB/utils.sh"
+source "$WTS_LIB/config.sh"
+
+wts_check_deps
+wts_require gh "GitHub CLI (gh) is required for PR review. Install with: brew install gh"
+
+# ─────────────────────────────────────────────────────────────
+# Parse arguments
+# ─────────────────────────────────────────────────────────────
+
+pr_number="${1:-}"
+
+if [ -z "$pr_number" ]; then
+  wts_error "Usage: wts review <pr-number>"
+  echo ""
+  echo "  Opens a new worktree session for reviewing a pull request."
+  echo ""
+  echo "  Example:"
+  echo "    wts review 123"
+  exit 1
+fi
+
+# Validate it's a number
+if ! [[ "$pr_number" =~ ^[0-9]+$ ]]; then
+  wts_error "PR number must be a positive integer, got: $pr_number"
+  exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Find the worktree root
+# ─────────────────────────────────────────────────────────────
+
+root="$(wts_find_worktree_root)" || {
+  wts_error "Could not find a worktree root directory."
+  exit 1
+}
+
+# ─────────────────────────────────────────────────────────────
+# Find the bare repo for git operations
+# ─────────────────────────────────────────────────────────────
+
+bare_repo=""
+for d in "$root"/*/; do
+  [ -d "$d" ] || continue
+  if [ -f "${d}HEAD" ] && [ -d "${d}refs" ]; then
+    bare_repo="$d"
+    break
+  fi
+done
+
+if [ -z "$bare_repo" ]; then
+  wts_error "Could not find bare repo in $root"
+  exit 1
+fi
+
+wts_debug "Bare repo: $bare_repo"
+
+# ─────────────────────────────────────────────────────────────
+# Fetch PR information
+# ─────────────────────────────────────────────────────────────
+
+wts_info "Fetching PR #${pr_number} info..."
+
+# We need to run gh from a worktree context (not bare repo)
+# Find any existing worktree to use as context
+context_dir=""
+for d in "$root"/*/; do
+  [ -d "$d" ] || continue
+  if [ -f "${d}.git" ] || [ -d "${d}.git" ]; then
+    context_dir="$d"
+    break
+  fi
+done
+
+if [ -z "$context_dir" ]; then
+  wts_error "No existing worktree found to use as git context."
+  exit 1
+fi
+
+# Get PR branch name and title
+pr_info="$(gh pr view "$pr_number" --json headRefName,title,state --template '{{.headRefName}}{{"\t"}}{{.title}}{{"\t"}}{{.state}}' -R "$(git -C "$context_dir" remote get-url origin 2>/dev/null)" 2>/dev/null)" || {
+  wts_error "Could not fetch PR #${pr_number}. Is this the right repository?"
+  exit 1
+}
+
+pr_branch="$(echo "$pr_info" | cut -f1)"
+pr_title="$(echo "$pr_info" | cut -f2)"
+pr_state="$(echo "$pr_info" | cut -f3)"
+
+wts_info "PR #${pr_number}: ${WTS_BOLD}${pr_title}${WTS_RESET}"
+wts_info "Branch: ${WTS_CYAN}${pr_branch}${WTS_RESET}  State: ${pr_state}"
+
+# ─────────────────────────────────────────────────────────────
+# Create worktree for the PR
+# ─────────────────────────────────────────────────────────────
+
+pr_prefix="${WTS_PR_WORKTREE_PREFIX:-pr-}"
+worktree_name="${pr_prefix}${pr_number}"
+worktree_path="${root}/${worktree_name}"
+
+if [ -d "$worktree_path" ]; then
+  wts_info "Worktree already exists: $worktree_name"
+else
+  wts_info "Creating worktree: ${WTS_BOLD}${worktree_name}${WTS_RESET}"
+
+  # Fetch the PR branch
+  git -C "$context_dir" fetch origin "pull/${pr_number}/head:${pr_branch}" 2>/dev/null || \
+    git -C "$context_dir" fetch origin "${pr_branch}" 2>/dev/null || {
+    wts_error "Could not fetch PR branch: $pr_branch"
+    exit 1
+  }
+
+  # Create the worktree
+  git -C "$context_dir" worktree add "$worktree_path" "$pr_branch" 2>/dev/null || {
+    wts_error "Could not create worktree at $worktree_path"
+    exit 1
+  }
+
+  wts_success "Worktree created at $worktree_path"
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Open session with review-oriented panes
+# ─────────────────────────────────────────────────────────────
+
+session_name="$(wts_session_name "$worktree_name")"
+
+if wts_session_exists "$session_name"; then
+  wts_info "Switching to existing review session: ${WTS_BOLD}$session_name${WTS_RESET}"
+  wts_attach_session "$session_name"
+else
+  wts_info "Opening review session: ${WTS_BOLD}$session_name${WTS_RESET}"
+
+  # Override pane2 with the review command
+  local_pane2="${WTS_PR_REVIEW_CMD:-nvim +Octo}"
+  WTS_PANE2_CMD="$local_pane2" wts_create_session "$worktree_path" "$session_name"
+  wts_attach_session "$session_name"
+fi
